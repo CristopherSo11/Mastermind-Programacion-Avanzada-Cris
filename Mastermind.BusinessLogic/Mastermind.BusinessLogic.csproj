@@ -5,5 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  
+<ItemGroup>
+  <None Update="Configuracion\colores.json"
+        CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
 
 </Project>

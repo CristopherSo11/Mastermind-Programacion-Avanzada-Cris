@@ -11,4 +11,21 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+<ItemGroup>
+  <None Include="..\Mastermind.BusinessLogic\Configuracion\colores.json"
+        Link="Configuracion\colores.json"
+        CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
+<ItemGroup>
+  <None Include="..\Mastermind.BusinessLogic\Configuracion\cheatcodes.json"
+        Link="Configuracion\cheatcodes.json"
+        CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
+<ItemGroup>
+  <None Update="Configuracion\cheatcodes.json"
+        CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+
 </Project>

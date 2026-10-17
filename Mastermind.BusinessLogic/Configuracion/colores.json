@@ -1,0 +1,13 @@
+{
+  "coloresPermitidos": {
+    "1": "Yellow",
+    "C": "Cyan",
+    "B": "Black",
+    "P": "Purple",
+    "W": "White",
+    "K": "Pink",
+    "R": "Red",
+    "M": "Brown",
+    "N": "Green"
+  }
+}
