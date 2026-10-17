@@ -1,3 +1,5 @@
+
+using System;
 using Mastermind.BusinessLogic;
 using Xunit;
 
@@ -25,9 +27,13 @@ namespace Mastermind.Tests
 
             public void ConsumirUso(string codigo)
             {
-                if (Buscar(codigo)?.UsosDisponibles <= 0)
+                CheatCode? cheat = Buscar(codigo);
+
+                if (cheat == null || cheat.UsosDisponibles <= 0)
+                {
                     throw new InvalidOperationException(
                         "Sin usos disponibles.");
+                }
 
                 UsosConsumidos++;
             }
@@ -53,7 +59,7 @@ namespace Mastermind.Tests
                     ColorCorrecto = 0
                 };
 
-            // Act: todas las posiciones ya son correctas
+            // Act: todas las posiciones ya son correctas.
             servicio.AplicarCheat(
                 "TEST123",
                 "RNB1",
@@ -66,49 +72,109 @@ namespace Mastermind.Tests
             Assert.Equal(1, repositorio.UsosConsumidos);
             Assert.True(sesion.CheatUtilizado);
             Assert.Equal(4, resultado.BienPosicionados);
+            Assert.Equal(0, resultado.ColorCorrecto);
         }
-        
-[Fact]
-public void NoDebePermitirSegundoCheatEnMismaPartida()
-{
-    // Arrange
-    RepositorioFalso repositorio = new RepositorioFalso();
 
-    ServicioCheatCode servicio =
-        new ServicioCheatCode(
-            repositorio,
-            new Random(10));
-
-    SesionPartida sesion = new SesionPartida();
-
-    ResultadoEvaluacion resultado =
-        new ResultadoEvaluacion
+        [Fact]
+        public void NoDebePermitirSegundoCheatEnMismaPartida()
         {
-            BienPosicionados = 1,
-            ColorCorrecto = 3
-        };
+            // Arrange
+            RepositorioFalso repositorio = new RepositorioFalso();
 
-    // Act: utilizar el primer cheat
-    servicio.AplicarCheat(
-        "TEST123",
-        "RNB1",
-        "RB1N",
-        sesion,
-        resultado);
+            ServicioCheatCode servicio =
+                new ServicioCheatCode(
+                    repositorio,
+                    new Random(10));
 
-    // Assert: intentar utilizarlo nuevamente
-    Assert.Throws<InvalidOperationException>(() =>
-        servicio.AplicarCheat(
-            "TEST123",
-            "RNB1",
-            "RB1N",
-            sesion,
-            resultado));
+            SesionPartida sesion = new SesionPartida();
 
-    // Solo se consumió un uso.
-    Assert.Equal(1, repositorio.UsosConsumidos);
+            ResultadoEvaluacion resultado =
+                new ResultadoEvaluacion
+                {
+                    BienPosicionados = 1,
+                    ColorCorrecto = 3
+                };
 
-    Assert.True(sesion.CheatUtilizado);
+            // Act: utilizar el primer cheat.
+            servicio.AplicarCheat(
+                "TEST123",
+                "RNB1",
+                "RB1N",
+                sesion,
+                resultado);
+
+            // Assert: intentar utilizarlo nuevamente.
+            Assert.Throws<InvalidOperationException>(() =>
+                servicio.AplicarCheat(
+                    "TEST123",
+                    "RNB1",
+                    "RB1N",
+                    sesion,
+                    resultado));
+
+            // Solo se consumió un uso.
+            Assert.Equal(1, repositorio.UsosConsumidos);
+            Assert.True(sesion.CheatUtilizado);
+        }
+
+        [Fact]
+        public void CheatValidoDebeRevelarPosicionYConsumirUso()
+        {
+            // Arrange
+            RepositorioFalso repositorio = new RepositorioFalso();
+
+            ServicioCheatCode servicio =
+                new ServicioCheatCode(
+                    repositorio,
+                    new Random(10));
+
+            SesionPartida sesion = new SesionPartida();
+
+            string patronSecreto = "RNB1";
+            string intentoJugador = "BN1R";
+
+            ResultadoEvaluacion resultado =
+                new ResultadoEvaluacion
+                {
+                    BienPosicionados = 0,
+                    ColorCorrecto = 4
+                };
+
+            // Act
+            servicio.AplicarCheat(
+                "TEST123",
+                patronSecreto,
+                intentoJugador,
+                sesion,
+                resultado);
+
+            // Assert: comprobar que se reveló una posición.
+            Assert.NotNull(resultado.PosicionRevelada);
+
+            int posicion =
+                Convert.ToInt32(resultado.PosicionRevelada) - 1;
+
+            Assert.InRange(posicion, 0, 3);
+
+            // Comprobar que el color corresponde al patrón.
+            Assert.Equal(
+                patronSecreto[posicion],
+                resultado.ColorRevelado);
+
+            // Comprobar que la pista fue útil.
+            Assert.NotNull(resultado.EstadoCheat);
+
+            Assert.Contains(
+                "Pista revelada",
+                resultado.EstadoCheat);
+
+            // Comprobar el consumo y el estado de la sesión.
+            Assert.Equal(1, repositorio.UsosConsumidos);
+            Assert.True(sesion.CheatUtilizado);
+
+            // La pista no modifica la evaluación original.
+            Assert.Equal(0, resultado.BienPosicionados);
+            Assert.Equal(4, resultado.ColorCorrecto);
         }
     }
 }
