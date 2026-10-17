@@ -1,22 +1,10 @@
 ﻿using Mastermind.BusinessLogic;
 
-EvaluadorMastermind evaluador = new EvaluadorMastermind();
+Console.WriteLine("=================================");
+Console.WriteLine("       BIENVENIDO A MASTERMIND");
+Console.WriteLine("=================================");
 
-string patronSecreto = "RGBY";
-string intentoJugador = "RBYG";
-
-var resultado = evaluador.EvaluarIntento(
-    patronSecreto, intentoJugador);
-
-Console.WriteLine("=== JUEGO MASTERMIND ===");
-Console.WriteLine($"Patrón secreto: {patronSecreto}");
-Console.WriteLine($"Intento del jugador: {intentoJugador}");
-Console.WriteLine($"Bien posicionados: {resultado.bienPosicionados}");
-Console.WriteLine($"Colores correctos en otra posición: {resultado.colorCorrecto}");
-
-Console.WriteLine();
-Console.WriteLine("=== COLORES CONFIGURADOS ===");
-
+// Cargar colores desde el archivo JSON.
 string rutaColores = Path.Combine(
     AppContext.BaseDirectory,
     "Configuracion",
@@ -25,66 +13,24 @@ string rutaColores = Path.Combine(
 ConfiguracionColores configuracion =
     ConfiguracionColores.CargarDesdeJson(rutaColores);
 
-foreach (var color in configuracion.ColoresPermitidos)
-{
-    Console.WriteLine($"{color.Key} - {color.Value}");
-}
-
-Console.WriteLine();
-Console.WriteLine("=== PRUEBA DE VALIDACIONES ===");
+// Preparar las clases del juego.
+EvaluadorMastermind evaluador = new EvaluadorMastermind();
 
 ValidadorMastermind validador =
     new ValidadorMastermind(configuracion);
 
-try
-{
-    validador.Validar("RNB1", "RB1N");
-    Console.WriteLine("Intento válido.");
-}
-catch (ArgumentException ex)
-{
-    Console.WriteLine($"Error: {ex.Message}");
-}
-
-try
-{
-    validador.Validar("RNB1", "ZZZZ");
-    Console.WriteLine("Intento válido.");
-}
-catch (ArgumentException ex)
-{
-    Console.WriteLine($"Error: {ex.Message}");
-}
-
-Console.WriteLine();
-Console.WriteLine("=== REGISTRO DE EVALUACIONES ===");
-
+// Preparar el archivo de logging.
 string rutaLog = Path.Combine(
     AppContext.BaseDirectory,
     "Logs",
     "evaluaciones.txt");
 
-ILogEvaluacion logArchivo = new LogArchivo(rutaLog);
+ILogEvaluacion log = new LogArchivo(rutaLog);
 
-ServicioRegistroEvaluacion servicioRegistro =
-    new ServicioRegistroEvaluacion(logArchivo);
+ServicioRegistroEvaluacion registro =
+    new ServicioRegistroEvaluacion(log);
 
-var resultadoRegistro = evaluador.EvaluarIntento(
-    "RNB1", "RB1N");
-
-servicioRegistro.RegistrarEvaluacion(
-    "RNB1",
-    "RB1N",
-    resultadoRegistro.bienPosicionados,
-    resultadoRegistro.colorCorrecto);
-
-Console.WriteLine("Evaluación registrada correctamente.");
-Console.WriteLine($"Archivo: {rutaLog}");
-
-Console.WriteLine();
-Console.WriteLine("=== PRUEBA DE CHEAT CODES ===");
-
-
+// Preparar el archivo persistente de cheat codes.
 string carpetaDatos = Path.Combine(
     Environment.GetFolderPath(
         Environment.SpecialFolder.LocalApplicationData),
@@ -92,165 +38,208 @@ string carpetaDatos = Path.Combine(
 
 Directory.CreateDirectory(carpetaDatos);
 
+// TEMPORAL: archivo exclusivo para pruebas.
 string rutaCheats = Path.Combine(
     carpetaDatos,
     "cheatcodes.json");
-
 string rutaCheatsInicial = Path.Combine(
     AppContext.BaseDirectory,
     "Configuracion",
     "cheatcodes.json");
 
-// Copiar los códigos iniciales solamente si
-// todavía no existe el archivo persistente.
 if (!File.Exists(rutaCheats))
 {
     File.Copy(rutaCheatsInicial, rutaCheats);
 }
 
-
 ICheatCodeRepository repositorioCheats =
     new CheatCodeJsonRepository(rutaCheats);
-
-string codigoPrueba = "A1B2C3D4E5F6G7H8I9J0ABCDE";
-
-CheatCode? cheat = repositorioCheats.Buscar(codigoPrueba);
-
-if (cheat != null)
-{
-    Console.WriteLine("Cheat code encontrado.");
-    Console.WriteLine(
-        $"Usos disponibles: {cheat.UsosDisponibles}");
-}
-else
-{
-    Console.WriteLine("Cheat code no encontrado.");
-}
-
-Console.WriteLine();
-// Console.WriteLine("=== PRUEBA DE CHEAT CODE ===");
-
-SesionPartida sesion = new SesionPartida();
 
 ServicioCheatCode servicioCheat =
     new ServicioCheatCode(
         repositorioCheats,
-        new Random(10));
+        new Random());
 
-var evaluacionCheat = evaluador.EvaluarIntento(
-    "RNB1", "RB1N");
-
-ResultadoEvaluacion resultadoCheat =
-    new ResultadoEvaluacion
-    {
-        BienPosicionados = evaluacionCheat.bienPosicionados,
-        ColorCorrecto = evaluacionCheat.colorCorrecto
-    };
-
-try
-{
-    servicioCheat.AplicarCheat(
-        codigoPrueba,
-        "RNB1",
-        "RB1N",
-        sesion,
-        resultadoCheat);
-
-    Console.WriteLine(
-        $"Estado: {resultadoCheat.EstadoCheat}");
-
-    Console.WriteLine(
-        $"Posición revelada: {resultadoCheat.PosicionRevelada}");
-
-    Console.WriteLine(
-        $"Color revelado: {resultadoCheat.ColorRevelado}");
-
-    Console.WriteLine(
-        $"Bien posicionados: {resultadoCheat.BienPosicionados}");
-
-    Console.WriteLine(
-        $"Cheat utilizado: {sesion.CheatUtilizado}");
-}
-catch (Exception ex) when (
-    ex is ArgumentException ||
-    ex is InvalidOperationException)
-{
-    Console.WriteLine($"Error: {ex.Message}");
-}
-
-Console.WriteLine();
-Console.WriteLine("=== SERVICIO MASTERMIND INTEGRADO ===");
-
-ServicioMastermind servicioMastermind =
+// Servicio principal que conecta todo.
+ServicioMastermind servicio =
     new ServicioMastermind(
         evaluador,
         validador,
-        servicioRegistro);
+        registro,
+        servicioCheat);
 
-try
+bool seguirJugando = true;
+
+while (seguirJugando)
 {
-    ResultadoEvaluacion resultadoFinal =
-        servicioMastermind.Evaluar("RNB1", "RB1N");
+    Console.WriteLine();
+    Console.WriteLine("=== NUEVA PARTIDA ===");
+
+    int longitud;
+
+    while (true)
+    {
+        Console.Write("Elige longitud (4 o 6): ");
+        string? entrada = Console.ReadLine();
+
+        if (int.TryParse(entrada, out longitud) &&
+            (longitud == 4 || longitud == 6))
+        {
+            break;
+        }
+
+        Console.WriteLine(
+            "Debes seleccionar 4 o 6 posiciones.");
+    }
+
+    // Obtener los códigos permitidos.
+    string[] colores =
+        configuracion.ColoresPermitidos.Keys.ToArray();
+
+    Random aleatorio = Random.Shared;
+
+    // Generar el patrón secreto.
+    string patronSecreto = string.Concat(
+        Enumerable.Range(0, longitud)
+            .Select(_ => colores[
+                aleatorio.Next(colores.Length)]));
+    SesionPartida sesion = new SesionPartida();
+Console.WriteLine(
+    $"[PRUEBA] Patrón secreto: {patronSecreto}");
+    string? ultimoIntento = null;
+    int intentos = 0;
+    bool victoria = false;
+
+    Console.WriteLine();
+    Console.WriteLine("Colores disponibles:");
+
+    foreach (var color in configuracion.ColoresPermitidos)
+    {
+        Console.WriteLine(
+            $"{color.Key} - {color.Value}");
+    }
+
+    Console.WriteLine();
+    Console.WriteLine(
+        $"Descubre el patrón secreto de {longitud} posiciones.");
 
     Console.WriteLine(
-        $"Bien posicionados: {resultadoFinal.BienPosicionados}");
+        "Puedes repetir colores en tus intentos.");
 
     Console.WriteLine(
-        $"Colores correctos en otra posición: {resultadoFinal.ColorCorrecto}");
+        "Para utilizar una pista escribe CHEAT.");
 
-    Console.WriteLine("Evaluación registrada en el log.");
-}
-catch (ArgumentException ex)
-{
-    Console.WriteLine($"Error de validación: {ex.Message}");
+    while (!victoria)
+    {
+        Console.WriteLine();
+        Console.Write(
+            $"Intento #{intentos + 1}: ");
+
+        string intento = (
+            Console.ReadLine() ?? "")
+            .Trim()
+            .ToUpperInvariant();
+
+        // Solicitar una pista sin consumir un intento.
+        if (intento == "CHEAT")
+        {
+            if (intentos == 0)
+            {
+                Console.WriteLine(
+                    "Primero realiza un intento.");
+                continue;
+            }
+
+            Console.Write("Introduce tu cheat code: ");
+            string codigo = (
+                Console.ReadLine() ?? "").Trim();
+
+            // Utilizamos el último intento válido.
+            // Su valor se guarda más abajo.
+            if (ultimoIntento == null)
+            {
+                Console.WriteLine(
+                    "Todavía no hay un intento válido.");
+                continue;
+            }
+
+            try
+            {
+                ResultadoEvaluacion pista =
+                    servicio.Evaluar(
+                        patronSecreto,
+                        ultimoIntento,
+                        sesion,
+                        codigo);
+
+                Console.WriteLine(
+                    $"Estado: {pista.EstadoCheat}");
+
+                Console.WriteLine(
+                    $"Posición revelada: {pista.PosicionRevelada}");
+
+                Console.WriteLine(
+                    $"Color revelado: {pista.ColorRevelado}");
+            }
+            catch (Exception ex) when (
+                ex is ArgumentException ||
+                ex is InvalidOperationException)
+            {
+                Console.WriteLine(
+                    $"No se pudo utilizar la pista: {ex.Message}");
+            }
+
+            continue;
+        }
+
+        try
+        {
+            ResultadoEvaluacion resultado =
+                servicio.Evaluar(
+                    patronSecreto,
+                    intento);
+
+            intentos++;
+            ultimoIntento = intento;
+
+            Console.WriteLine(
+                $"Bien posicionados: {resultado.BienPosicionados}");
+
+            Console.WriteLine(
+                $"Colores correctos en otra posición: {resultado.ColorCorrecto}");
+
+            if (resultado.BienPosicionados == longitud)
+            {
+                victoria = true;
+
+                Console.WriteLine();
+                Console.WriteLine(
+                    "¡FELICIDADES! Descubriste el patrón.");
+
+                Console.WriteLine(
+                    $"Patrón secreto: {patronSecreto}");
+
+                Console.WriteLine(
+                    $"Intentos utilizados: {intentos}");
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            Console.WriteLine(
+                $"Intento inválido: {ex.Message}");
+        }
+    }
+
+    Console.WriteLine();
+    Console.Write("¿Quieres jugar otra vez? (S/N): ");
+
+    string respuesta = (
+        Console.ReadLine() ?? "")
+        .Trim()
+        .ToUpperInvariant();
+
+    seguirJugando = respuesta == "S";
 }
 
 Console.WriteLine();
-// Console.WriteLine("=== MASTERMIND CON CHEAT CODE ===");
-Console.WriteLine();
-Console.WriteLine("=== RUTA DEL ARCHIVO DE CHEATS ===");
-Console.WriteLine(rutaCheats);
-// ServicioMastermind servicioCompleto =
-//     new ServicioMastermind(
-//         evaluador,
-//         validador,
-//         servicioRegistro,
-//         servicioCheat);
-
-// SesionPartida nuevaPartida = new SesionPartida();
-
-// string segundoCodigo = "Z9Y8X7W6V5U4T3S2R1Q0LMNOP";
-
-// try
-// {
-//     ResultadoEvaluacion resultadoConCheat =
-//         servicioCompleto.Evaluar(
-//             "RNB1",
-//             "RB1N",
-//             nuevaPartida,
-//             segundoCodigo);
-
-//     Console.WriteLine(
-//         $"Bien posicionados: {resultadoConCheat.BienPosicionados}");
-
-//     Console.WriteLine(
-//         $"Colores correctos: {resultadoConCheat.ColorCorrecto}");
-
-//     Console.WriteLine(
-//         $"Estado del cheat: {resultadoConCheat.EstadoCheat}");
-
-//     Console.WriteLine(
-//         $"Posición revelada: {resultadoConCheat.PosicionRevelada}");
-
-//     Console.WriteLine(
-//         $"Color revelado: {resultadoConCheat.ColorRevelado}");
-
-//     Console.WriteLine(
-//         $"Cheat utilizado: {nuevaPartida.CheatUtilizado}");
-// }
-// catch (Exception ex) when (
-//     ex is ArgumentException ||
-//     ex is InvalidOperationException)
-// {
-//     Console.WriteLine($"Error: {ex.Message}");
-// }
+Console.WriteLine("¡Gracias por jugar Mastermind!");
